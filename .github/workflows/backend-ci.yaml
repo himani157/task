@@ -1,4 +1,3 @@
-cat > .github/workflows/backend-ci.yaml <<'EOF'
 name: Backend Continuous Integration
 
 on:
