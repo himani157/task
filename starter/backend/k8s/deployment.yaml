@@ -16,6 +16,6 @@ spec:
     spec:
       containers:
         - name: backend
-          image: backend
+          image: backend  # This will be replaced by CD pipeline
           ports:
             - containerPort: 5000

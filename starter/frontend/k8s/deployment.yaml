@@ -16,6 +16,6 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: frontend
+          image: frontend  # This will be replaced by CD pipeline
           ports:
             - containerPort: 3000
