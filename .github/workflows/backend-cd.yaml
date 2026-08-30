@@ -8,16 +8,15 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-      
+
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
-      
+          python-version: '3.10'
+
       - name: Cache pip dependencies
         uses: actions/cache@v3
         with:
@@ -25,17 +24,16 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('**/starter/backend/Pipfile.lock') }}
           restore-keys: |
             ${{ runner.os }}-pip-
-      
+
       - name: Install pipenv
         run: |
-          cd starter/backend
           pip install pipenv
-      
+
       - name: Install dependencies
         run: |
           cd starter/backend
-          pipenv install --dev
-      
+          pipenv install --dev --python $(which python)
+
       - name: Run lint
         run: |
           cd starter/backend
@@ -43,16 +41,15 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-      
+
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
-      
+          python-version: '3.10'
+
       - name: Cache pip dependencies
         uses: actions/cache@v3
         with:
@@ -60,17 +57,16 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('**/starter/backend/Pipfile.lock') }}
           restore-keys: |
             ${{ runner.os }}-pip-
-      
+
       - name: Install pipenv
         run: |
-          cd starter/backend
           pip install pipenv
-      
+
       - name: Install dependencies
         run: |
           cd starter/backend
-          pipenv install --dev
-      
+          pipenv install --dev --python $(which python)
+
       - name: Run tests
         run: |
           cd starter/backend
@@ -79,22 +75,21 @@ jobs:
   build-and-deploy:
     needs: [lint, test]
     runs-on: ubuntu-latest
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-      
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
-      
+
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
-      
+
       - name: Build Docker image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -103,7 +98,7 @@ jobs:
         run: |
           cd starter/backend
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-      
+
       - name: Push Docker image to ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -111,11 +106,11 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-      
+
       - name: Update kubeconfig
         run: |
           aws eks update-kubeconfig --region ${{ secrets.AWS_REGION }} --name ${{ secrets.EKS_CLUSTER_NAME }}
-      
+
       - name: Deploy to EKS
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -123,10 +118,10 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           cd starter/backend/k8s
-          sed -i 's|image:.*|image: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG|' deployment.yaml
+          sed -i 's|image:.*|image: '"$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"'|' deployment.yaml
           kubectl apply -f deployment.yaml
           kubectl apply -f service.yaml
-      
+
       - name: Verify deployment
         run: |
           kubectl rollout status deployment/backend
